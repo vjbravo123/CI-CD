@@ -28,7 +28,7 @@ jobs:
           DATABASE_CLIENT=${{ secrets.DATABASE_CLIENT }}
           DATABASE_NAME=${{ secrets.DATABASE_NAME }}
           DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}
-          DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}  
           DATABASE_PORT=${{ secrets.DATABASE_PORT }}
           VITE_STRAPI_API_URL=${{ secrets.VITE_STRAPI_API_URL }}
           EOF
