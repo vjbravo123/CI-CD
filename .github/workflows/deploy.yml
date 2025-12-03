@@ -1,0 +1,79 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main  # or master, depending on your branch name
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create .env file
+        run: |
+          cat << EOF > .env
+          HOST=${{ secrets.HOST }}
+          PORT=${{ secrets.PORT }}
+          APP_KEYS=${{ secrets.APP_KEYS }}
+          API_TOKEN_SALT=${{ secrets.API_TOKEN_SALT }}
+          ADMIN_JWT_SECRET=${{ secrets.ADMIN_JWT_SECRET }}
+          TRANSFER_TOKEN_SALT=${{ secrets.TRANSFER_TOKEN_SALT }}
+          ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          DATABASE_CLIENT=${{ secrets.DATABASE_CLIENT }}
+          DATABASE_NAME=${{ secrets.DATABASE_NAME }}
+          DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}
+          DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_PORT=${{ secrets.DATABASE_PORT }}
+          VITE_STRAPI_API_URL=${{ secrets.VITE_STRAPI_API_URL }}
+          EOF
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ".,!.git,!.github,!node_modules"
+          target: "/home/${{ secrets.EC2_USERNAME }}/app"
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USERNAME }}/app
+            
+            # Pull latest images if needed
+            docker-compose pull
+            
+            # Stop and remove old containers (keeps volumes!)
+            docker-compose down
+            
+            # Build and start containers
+            docker-compose up -d --build
+            
+            # Clean up unused images
+            docker image prune -f
+            
+            # Show running containers
+            docker-compose ps
+
+      - name: Health Check
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sleep 30
+            cd /home/${{ secrets.EC2_USERNAME }}/app
+            docker-compose ps
+            curl -f http://localhost:1337/admin || exit 1
